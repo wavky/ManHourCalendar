@@ -14,7 +14,7 @@ Example to run the program.
 import calendar
 
 # 每列宽度
-width = 10
+width = 16
 cal = str(calendar.month(2017, 9, width))
 weeks = [' ' + w for w in cal.split('\n') if w != '']
 
@@ -23,8 +23,12 @@ for week in weeks:
     mark = '-' * width + '|'
     print('|' + mark * 7)
 
-# 输出每个星期的嵌套列表
-print(calendar.monthcalendar(2017,9))
+import src.manhour_calendar as manhour
+from datetime import date
 
-# 打印weekday序号（0-6，0为星期一）
-print(calendar.weekday(2017,9,1))
+date = date.today()
+month = manhour.Month(date.year, date.month)
+month.initialize_days()
+print(month.holidays)
+print(month.days)
+print(month)
