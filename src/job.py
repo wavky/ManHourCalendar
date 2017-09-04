@@ -17,9 +17,17 @@ class Job:
         :param required_manhour: monthly manhour required by company
         :param daily_work_hours: daily work hours required by company
         :param hourly_pay: hourly pay offers by company
-        :param max_daily_overhours: how many hours you can work overtime per day
+        :param max_daily_overhours: how many hours you can work overtime per day, while minus means unlimited
         """
         self.required_manhour = required_manhour
         self.daily_work_hours = daily_work_hours
         self.hourly_pay = hourly_pay
         self.max_daily_overhours = max_daily_overhours
+
+        if max_daily_overhours < 0:
+            self.max_daily_overhours = 24 - daily_work_hours
+
+        if daily_work_hours + max_daily_overhours > 24:
+            self.max_daily_overhours = 24 - daily_work_hours
+            print("daily_work_hours + max_daily_overhours > 24, max_daily_overhours has been set to {0}.".format(
+                self.max_daily_overhours))
