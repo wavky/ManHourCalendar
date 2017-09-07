@@ -27,25 +27,23 @@ class Month:
             filter(lambda date_: date_.month == month, calendar.Calendar().itermonthdates(year, month)))
         self.days = []
         self.holidays = []
+        self.weeks = []
 
     def initialize_days(self):
         # TODO: Cache update for a year, move update to outside the initialization
-        # holidays_one_year = update_holiday_schedule() or []
-        holidays_one_year = []
+        holidays_one_year = update_holiday_schedule() or []
+        # holidays_one_year = []
         self.holidays = list(filter(lambda ho: ho.month == str(self.index['month']), holidays_one_year))
         self.days = self.__dates2days()
+        self.weeks = self.__days2weeks()
 
     @property
     def today(self):
         """
-        :return: object day of today
+        :return: the Day object of today
         """
         index = self.dates.index(date.today())
-        if len(self.days) > index:
-            return self.days[index]
-        else:
-            print("Haven't initialize yet.")
-            return None
+        return self.days[index]
 
     def __dates2days(self):
         """
@@ -67,9 +65,18 @@ class Month:
             days.append(Day(date_, holiday, dayoff))
         return days
 
-    def days2weeks(self):
-        # TODO: continue
-        pass
+    def __days2weeks(self):
+        today = date.today()
+        date_matrix = calendar.Calendar().monthdayscalendar(today.year, today.month)
+        date_list = list(filter(lambda d: d > 0, calendar.Calendar().itermonthdays(today.year, today.month)))
+        weeks = []
+        for w in date_matrix:
+            week = []
+            weeks.append(week)
+            for d in w:
+                if d > 0:
+                    week.append(self.days[date_list.index(d)])
+        return weeks
 
     def __str__(self):
         return "MonthlyCalendar({year}, {month} days: {days})".format(year=self.index['year'],
@@ -81,15 +88,16 @@ class Month:
 
 
 class Day:
-    def __init__(self, date_: date, holiday=None, dayoff=False, schedule=0, checkin=0, past=False):
+    def __init__(self, date_: date, holiday=None, dayoff=False, schedule=0, checkin=0, overtime=0, past=False):
         self.date = date_
-        self.is_holiday = holiday
+        self.holiday = holiday
         self.is_dayoff = dayoff
         self.scheduled_work_hours = schedule
         self.checkin_manhour = checkin
+        self.overtime = overtime
         self.is_past = past
 
-    def checkin(self, hours, past=True):
+    def checkin(self, hours=0, past=True):
         """
         Check in the man hours today.
 
@@ -97,7 +105,7 @@ class Day:
         :param past: if work today has done or not
         :return:
         """
-        self.is_dayoff = False
+        self.is_dayoff = hours == 0
         self.checkin_manhour = hours
         self.is_past = past
 
@@ -118,7 +126,7 @@ class Day:
     def __str__(self):
         return "Day({date}, holiday={holiday}, dayoff={dayoff}, " \
                "scheduled={scheduled}, checkin={checkin}, past={past})" \
-            .format(date=self.date, holiday=self.is_holiday, dayoff=self.is_dayoff,
+            .format(date=self.date, holiday=self.holiday, dayoff=self.is_dayoff,
                     scheduled=self.scheduled_work_hours, checkin=self.checkin_manhour, past=self.is_past)
 
     def __repr__(self):
@@ -183,12 +191,16 @@ class Schedule:
         self.schedule()
 
     def schedule(self):
+        # FIXME: 要可以指定安排工时精度
         days_past = set(filter(lambda day: day.is_past, self.month.days))
         days_remain = set(self.month.days) - days_past
         workdays_remain = set(filter(lambda day: not day.is_dayoff, days_remain))
         dayoff_remain = days_remain - workdays_remain
 
-        self.checkin_manhour = reduce(lambda a, b: a + b, [day.checkin_manhour for day in days_past])
+        if len(days_past) > 0:
+            self.checkin_manhour = reduce(lambda a, b: a + b, [day.checkin_manhour for day in days_past])
+        else:
+            self.checkin_manhour = 0
         delta_manhour_remain = self.job.required_manhour - self.checkin_manhour
         self.manhour_remain = delta_manhour_remain if delta_manhour_remain > 0 else 0
         self.overhours = -delta_manhour_remain if delta_manhour_remain < 0 else 0
@@ -207,38 +219,103 @@ class Schedule:
 
         for day in workdays_remain:
             day.schedule(schedule_hours)
+            day.overtime = 0 if schedule_hours <= self.job.daily_work_hours \
+                else round(schedule_hours - self.job.daily_work_hours, 2)
         for day in dayoff_remain:
             day.schedule(0)
+            day.overtime = 0
 
 
-class Calendar:
+class MHCalendarDrawer:
     """
     Output a monthly calendar.
     """
 
     def __init__(self, width=14):
+        """
+
+        :param width: minimum width is limited to 12, and MUST BE set as EVEN
+        """
         self.width = 12 if width < 12 else width
-        self.header = '-' * (width + 1) * 7 + '-'
+        self.hr_line = '-' * (width + 1) * 7 + '-'
         self.seperator = '|' + ('-' * width + '|') * 7
+        self.blank_line = str(' ' * ((width + 1) * 7 + 1))
 
-    def draw(self, year, month):
-        def print_blank(): print('\n', end='')
+    def __separate_line(self, week: str, end=''):
+        week = ''.join(list(week).copy())
+        distance_to_end = self.width * 7 + 8 - len(week)
+        week += ' ' * distance_to_end
+        week = list(week)
+        week[::self.width + 1] = list('|' * 8)
+        return ''.join(week) + end
 
-        cal = str(calendar.month(year, month, self.width))
-        weeks = [' ' + w for w in cal.split('\n') if w != '']
+    def __pipe(self, start, width, *texts, seperator='|', end=''):
+        """
+        The real name is Pile In piPE :P
 
-        title = weeks.pop(0)
-        day_of_week = weeks.pop(0)
+        :param start: offset to start
+        :param width: pipe's width
+        :param texts: text to fill into a pipe
+        :param seperator: seperator before and after, not count in pipe's width
+        :return: a bamboo...
+        """
+        elements = [' ' * start, seperator]
+        for t in texts:
+            lent = len(t)
+            if lent < width:
+                t += ' ' * (width - lent)
+            t += seperator
+            elements.append(t)
+        elements.append(end)
+        return ''.join(elements)
 
-        print_blank()
-        print(title)
-        print(self.header)
-        print(day_of_week)
-        for week in weeks:
-            print(self.seperator)
-            print(week)
-        print(self.header)
-        # TODO: Continue
+    def __packup_week_schedule(self, week):
+        first_weekday = week[0].date.weekday()
+        start_index = first_weekday * (self.width + 1)
+        pipes = list()
+
+        pipes.append(
+            self.__separate_line(
+                self.__pipe(
+                    start_index, self.width,
+                    *['* Holiday *'.center(self.width) if week[i].holiday is not None else ' ' * self.width
+                      for i in range(len(week))]), '\n'))
+        pipes.append(
+            self.__separate_line(
+                self.__pipe(start_index, self.width, *['Schedule: ' + str(week[i].scheduled_work_hours)
+                                                       for i in range(len(week))]), '\n'))
+        pipes.append(
+            self.__separate_line(
+                self.__pipe(start_index, self.width, *['Overtime: ' + str(week[i].overtime)
+                                                       for i in range(len(week))]), '\n'))
+        pipes.append(
+            self.__separate_line(
+                self.__pipe(start_index, self.width, *['Checkin:  ' + str(week[i].checkin_manhour)
+                                                       for i in range(len(week))]), '\n'))
+        pipes.append(
+            self.__separate_line(
+                self.__pipe(start_index, self.width, *['Dayoff: ' + ('Yes' if week[i].is_dayoff else 'No')
+                                                       for i in range(len(week))]), '\n'))
+        pipes.append(
+            self.__separate_line(
+                self.__pipe(start_index, self.width, *['Done: ' + ('Yes' if week[i].is_past else 'No')
+                                                       for i in range(len(week))]), '\n'))
+        return pipes
+
+    def draw(self, schedule: Schedule):
+        cal = str(calendar.month(schedule.month.index['year'], schedule.month.index['month'], self.width))
+        cal_lines = [' ' + w for w in cal.splitlines() if w != '']
+
+        title = cal_lines.pop(0)
+        day_of_week = cal_lines.pop(0)
+        cal_weeks = cal_lines
+
+        print('', title, self.hr_line, day_of_week, self.__separate_line(self.hr_line), sep='\n')
+        for i in range(len(cal_weeks)):
+            print(self.__separate_line(cal_weeks[i]))
+            print(*self.__packup_week_schedule(schedule.month.weeks[i]), sep='', end='')
+            print(self.__separate_line(self.hr_line))
+            # TODO: 打印Job信息，本月工作时间概览，预期工资，节日列表，今日日期
 
 
 def timezone_date(tz=+9, area='Tokyo'):
