@@ -12,7 +12,6 @@ from collections import namedtuple
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from functools import reduce
-from itertools import chain
 from urllib import request
 
 from src.job import Job
@@ -41,10 +40,23 @@ class Month:
     @property
     def today(self):
         """
-        :return: the Day object of today
+        :return: the Day object of today, or None if today is not in this month
         """
-        index = self.dates.index(date.today())
-        return self.days[index]
+        td = date.today()
+        if td in self.dates:
+            index = self.dates.index(td)
+            return self.days[index]
+
+    @property
+    def next_day(self):
+        """
+        Obtain the next day that is not past.
+
+        :return: object Day or None
+        """
+        for day in self.days:
+            if not day.is_past:
+                return day
 
     def __dates2days(self):
         """
@@ -89,38 +101,43 @@ class Month:
 
 
 class Day:
-    def __init__(self, date_: date, holiday=None, dayoff=False, schedule=0, checkin=0, overtime=0, past=False):
+    def __init__(self, date_: date, holiday: Holiday = None, dayoff=False,
+                 schedule=0, checkin=0, overtime=0, past=False):
         self.date = date_
         self.holiday = holiday
         self.is_dayoff = dayoff
         self.scheduled_work_hours = schedule
         self.checkin_manhour = checkin
+        # overtime at past day stands for OT indeed, otherwise it only stands for scheduled-OT
         self.overtime = overtime
         self.is_past = past
 
     def checkin(self, hours=0, past=True):
         """
-        Check in the man hours today.
+        Check in the man hours of this day.
 
-        :param hours: man hours today
+        :param hours: man hours today, default 0 means check in as scheduled manhour
         :param past: if work today has done or not
-        :return:
         """
-        self.is_dayoff = hours == 0
-        self.checkin_manhour = hours
+        self.checkin_manhour = hours if hours > 0 else self.scheduled_work_hours
+        if past:
+            self.overtime -= self.scheduled_work_hours - self.checkin_manhour
         self.is_past = past
 
     def dayoff(self):
+        """
+        You should only set day off the day which is NOT past.
+        """
         self.is_dayoff = True
         self.checkin_manhour = 0
-        self.is_past = True
+        self.schedule(0)
+        self.overtime = 0
 
     def schedule(self, hours=0):
         """
         You should only schedule a day that is NOT past.
 
         :param hours:
-        :return:
         """
         self.scheduled_work_hours = hours
 
@@ -144,6 +161,8 @@ class Schedule:
         self.manhour_remain = 0
         # how many overhours you have done for now (Decimal type or 0)
         self.overhours = 0
+        # hours that CAN NOT be scheduled on this month
+        self.manhour_absence = 0
 
     @property
     def dayoff_list(self):
@@ -153,6 +172,7 @@ class Schedule:
         """
         Adjust the schedule by setting dates of dayoff.
         You can ONLY adjust the days that is not past.
+        You need to re-schedule it before draw().
 
         :param day_off: dates which is planing to take a day off, while minus means that day switches to on duty
         """
@@ -160,9 +180,9 @@ class Schedule:
             return
 
         dayoff = sorted(set(filter(lambda d: d > 0, day_off)))
-        onduty = sorted(set(abs(x) for x in filter(lambda d: d < 0, dayoff)))
+        onduty = sorted(set(abs(x) for x in filter(lambda d: d < 0, day_off)))
 
-        invalid_dates = sorted(set(filter(lambda d: abs(d) > len(self.month.days), day_off)))
+        invalid_dates = sorted(set(filter(lambda d: abs(d) > len(self.month.days) or d == 0, day_off)))
         if len(invalid_dates) > 0:
             print("Parameter out of range of month: {0}".format(invalid_dates))
             return
@@ -173,23 +193,22 @@ class Schedule:
             print("Parameter conflicts at: {0}".format(conflict_dates))
             return
 
-        dayoff_days = {i: self.month.days[i] for i in dayoff}
-        onduty_days = {i: self.month.days[i] for i in onduty}
+        dayoff_days = {date: self.month.days[date - 1] for date in dayoff}
+        onduty_days = {date: self.month.days[date - 1] for date in onduty}
 
-        past_day = dict(filter(lambda index, day: day.is_past, chain(dayoff_days, onduty_days)))
+        past_day = dict(filter(lambda item: item[1].is_past, dayoff_days.items()))
+        past_day.update(dict(filter(lambda item: item[1].is_past, onduty_days.items())))
         if len(past_day) > 0:
-            print("Illegal past dates: {0}".format(past_day.keys()))
+            print("Illegal past dates: {0}".format(list(past_day.keys())))
             return
 
         dayoff_days = dayoff_days.values()
         onduty_days = onduty_days.values()
 
         for day in dayoff_days:
-            day.is_dayoff = True
+            day.dayoff()
         for day in onduty_days:
             day.is_dayoff = False
-
-        self.schedule()
 
     @classmethod
     def __sort_day(cls, days):
@@ -203,11 +222,12 @@ class Schedule:
 
         if len(days_past) > 0:
             self.checkin_manhour = reduce(lambda a, b: a + b, [dec_float(day.checkin_manhour) for day in days_past])
+            self.overhours = reduce(lambda a, b: a + b, [dec_float(day.overtime) for day in days_past])
         else:
             self.checkin_manhour = 0
+            self.overhours = 0
         delta_manhour_remain = dec_float(self.job.required_manhour) - self.checkin_manhour
         self.manhour_remain = delta_manhour_remain if delta_manhour_remain > 0 else 0
-        self.overhours = -delta_manhour_remain if delta_manhour_remain < 0 else 0
         return self.__sort_day(workdays_remain), self.__sort_day(dayoff_remain), self.manhour_remain
 
     def __ceil_workhour_by_precision(self, workhour: Decimal, precision: Decimal):
@@ -270,6 +290,8 @@ class Schedule:
             day.schedule(0)
             day.overtime = 0
 
+        self.manhour_absence = float(manhour_remain) if manhour_remain > 0 else 0
+
 
 class MHCalendarDrawer:
     """
@@ -318,33 +340,69 @@ class MHCalendarDrawer:
         start_index = first_weekday * (self.width + 1)
         pipes = list()
 
-        pipes.append(
-            self.__separate_line(
-                self.__pipe(
-                    start_index, self.width,
-                    *['* Holiday *'.center(self.width) if week[i].holiday is not None else ' ' * self.width
-                      for i in range(len(week))]), '\n'))
-        pipes.append(
-            self.__separate_line(
-                self.__pipe(start_index, self.width, *['Sched: ' + str(week[i].scheduled_work_hours)
-                                                       for i in range(len(week))]), '\n'))
-        pipes.append(
-            self.__separate_line(
-                self.__pipe(start_index, self.width, *['OT: ' + str(week[i].overtime)
-                                                       for i in range(len(week))]), '\n'))
-        pipes.append(
-            self.__separate_line(
-                self.__pipe(start_index, self.width, *['Checkin:  ' + str(week[i].checkin_manhour)
-                                                       for i in range(len(week))]), '\n'))
-        pipes.append(
-            self.__separate_line(
-                self.__pipe(start_index, self.width, *['Dayoff: ' + ('Yes' if week[i].is_dayoff else 'No')
-                                                       for i in range(len(week))]), '\n'))
-        pipes.append(
-            self.__separate_line(
-                self.__pipe(start_index, self.width, *['Done: ' + ('Yes' if week[i].is_past else 'No')
-                                                       for i in range(len(week))]), '\n'))
+        holidays = ['* Holiday *'.center(self.width)
+                    if week[i].holiday is not None else ' ' * self.width for i in range(len(week))]
+        schedule_hours = ['Sched: {}'.format(week[i].scheduled_work_hours)
+                          if not week[i].is_dayoff else '-' for i in range(len(week))]
+        overtime_hours = ['OT: {}'.format(week[i].overtime)
+                          if not week[i].is_dayoff else '-' for i in range(len(week))]
+        checkin_hours = ['Checkin: {}'.format(week[i].checkin_manhour)
+                         if not week[i].is_dayoff else '-' for i in range(len(week))]
+        dayoff = ['Dayoff: {}'.format('Yes' if week[i].is_dayoff else 'No') for i in range(len(week))]
+        done = ['Done: {}'.format('Yes' if week[i].is_past else 'No') for i in range(len(week))]
+        pipes.append(self.__separate_line(self.__pipe(start_index, self.width, *holidays), '\n'))
+        pipes.append(self.__separate_line(self.__pipe(start_index, self.width, *schedule_hours), '\n'))
+        pipes.append(self.__separate_line(self.__pipe(start_index, self.width, *overtime_hours), '\n'))
+        pipes.append(self.__separate_line(self.__pipe(start_index, self.width, *checkin_hours), '\n'))
+        pipes.append(self.__separate_line(self.__pipe(start_index, self.width, *dayoff), '\n'))
+        pipes.append(self.__separate_line(self.__pipe(start_index, self.width, *done), '\n'))
         return pipes
+
+    def __decorate_today(self, month, week_line):
+        if month.today:
+            day = date.today().day
+            index = week_line.find(' ' + str(day) + ' ')
+            if index > 0:
+                week_line = list(week_line)
+                week_line[index - 1] = '['
+                r_offset = 3 if day < 10 else 4
+                week_line[index + r_offset] = ']'
+                week_line = ''.join(week_line)
+        return week_line
+
+    def __print_holiday(self, schedule):
+        holidays = schedule.month.holidays
+        if holidays and len(holidays):
+            for holiday in holidays:
+                print('{year}.{month}.{day}  {name}'
+                      .format(year=holiday.year, month=holiday.month, day=holiday.day, name=holiday.name))
+
+    def __print_today(self, schedule):
+        day = schedule.month.today
+        day_name = date.today().strftime('%A')
+        if day:
+            holiday = '** {} **'.format(day.holiday.name) if day.holiday else ''
+            checkin_or_dayoff = '\t Checkin: {}'.format(day.checkin_manhour) if not day.is_dayoff else '\t Day off'
+            print('Today:', str(day.date), day_name, holiday, '\t Schedule(OT):', day.scheduled_work_hours,
+                  '({})'.format(day.overtime), checkin_or_dayoff)
+        else:
+            print('today:', date.today(), day_name)
+
+    def __print_manhour_expect(self, schedule):
+        workdays = len(schedule.month.days) - len(schedule.dayoff_list)
+        salary = schedule.job.required_manhour * schedule.job.hourly_pay
+        print('Expecting:', 'Manhour/Workdays = {0}/{1}'.format(schedule.job.required_manhour, workdays),
+              '\t Salary = {}'.format(salary))
+
+    def __print_manhour_fornow(self, schedule):
+        print('For now:  ', 'Checkin manhour = {}'.format(schedule.checkin_manhour),
+              '\t Remaining manhour = {}'.format(schedule.manhour_remain),
+              '\t Overtime = {}'.format(schedule.overhours),
+              '\t Salary = {}'.format(schedule.checkin_manhour * schedule.job.hourly_pay))
+
+    def __print_manhour_absence(self, schedule):
+        if schedule.manhour_absence > 0:
+            print('These manhour can not be scheduled on this month:', schedule.manhour_absence)
 
     def draw(self, schedule: Schedule):
         cal = str(calendar.month(schedule.month.index['year'], schedule.month.index['month'], self.width))
@@ -356,11 +414,16 @@ class MHCalendarDrawer:
 
         print('', title, self.hr_line, day_of_week, self.__separate_line(self.hr_line), sep='\n')
         for i in range(len(cal_weeks)):
-            print(self.__separate_line(cal_weeks[i]))
+            print(self.__separate_line(self.__decorate_today(schedule.month, cal_weeks[i])))
             print(*self.__packup_week_schedule(schedule.month.weeks[i]), sep='', end='')
             print(self.__separate_line(self.hr_line))
-            # TODO: 打印Job信息，本月工作时间概览，预期工资，节日列表，今日日期
         print('(Sched = Schedule, OT = Overtime)')
+        self.__print_holiday(schedule)
+        print('')
+        self.__print_today(schedule)
+        self.__print_manhour_expect(schedule)
+        self.__print_manhour_fornow(schedule)
+        self.__print_manhour_absence(schedule)
 
 
 def timezone_date(tz=+9, area='Tokyo'):

@@ -25,4 +25,12 @@ schedule.schedule()
 mhc = mh.MHCalendarDrawer(width=14)
 mhc.draw(schedule)
 
+month.next_day.checkin(7.5)
+month.next_day.checkin()
+month.next_day.checkin()
+month.next_day.checkin()
+schedule.adjust(day_off=[6, 12, -9, -17])
+schedule.schedule()
+mhc.draw(schedule)
+
 # TODO: 控制面板
