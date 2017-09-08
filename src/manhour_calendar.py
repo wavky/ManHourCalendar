@@ -10,6 +10,7 @@ Process overall information of one month.
 import calendar
 from collections import namedtuple
 from datetime import date, datetime, timezone, timedelta
+from decimal import Decimal
 from functools import reduce
 from itertools import chain
 from urllib import request
@@ -31,8 +32,8 @@ class Month:
 
     def initialize_days(self):
         # TODO: Cache update for a year, move update to outside the initialization
-        holidays_one_year = update_holiday_schedule() or []
-        # holidays_one_year = []
+        # holidays_one_year = update_holiday_schedule() or []
+        holidays_one_year = []
         self.holidays = list(filter(lambda ho: ho.month == str(self.index['month']), holidays_one_year))
         self.days = self.__dates2days()
         self.weeks = self.__days2weeks()
@@ -137,11 +138,11 @@ class Schedule:
     def __init__(self, job: Job, month: Month):
         self.job = job
         self.month = month
-        # how many hours you have worked this month
+        # how many hours you have worked this month (Decimal type or 0)
         self.checkin_manhour = 0
-        # how many hours last you need to work this month
+        # how many hours last you need to work this month (Decimal type or 0)
         self.manhour_remain = 0
-        # how many overhours you have done for now
+        # how many overhours you have done for now (Decimal type or 0)
         self.overhours = 0
 
     @property
@@ -158,15 +159,15 @@ class Schedule:
         if len(day_off) == 0:
             return
 
-        dayoff = set(filter(lambda d: d > 0, day_off))
-        onduty = set(abs(x) for x in filter(lambda d: d < 0, dayoff))
+        dayoff = sorted(set(filter(lambda d: d > 0, day_off)))
+        onduty = sorted(set(abs(x) for x in filter(lambda d: d < 0, dayoff)))
 
-        invalid_dates = set(filter(lambda d: abs(d) > len(self.month.days), day_off))
+        invalid_dates = sorted(set(filter(lambda d: abs(d) > len(self.month.days), day_off)))
         if len(invalid_dates) > 0:
             print("Parameter out of range of month: {0}".format(invalid_dates))
             return
 
-        conflict_dates = set(filter(lambda d: d in onduty, dayoff))
+        conflict_dates = sorted(set(filter(lambda d: d in onduty, dayoff)))
         conflict_dates = [(d, -d) for d in conflict_dates]
         if len(conflict_dates) > 0:
             print("Parameter conflicts at: {0}".format(conflict_dates))
@@ -190,37 +191,81 @@ class Schedule:
 
         self.schedule()
 
-    def schedule(self):
-        # FIXME: 要可以指定安排工时精度
+    @classmethod
+    def __sort_day(cls, days):
+        return sorted(days, key=lambda day: day.date)
+
+    def __calculate_manhour_remain(self):
         days_past = set(filter(lambda day: day.is_past, self.month.days))
         days_remain = set(self.month.days) - days_past
         workdays_remain = set(filter(lambda day: not day.is_dayoff, days_remain))
         dayoff_remain = days_remain - workdays_remain
 
         if len(days_past) > 0:
-            self.checkin_manhour = reduce(lambda a, b: a + b, [day.checkin_manhour for day in days_past])
+            self.checkin_manhour = reduce(lambda a, b: a + b, [dec_float(day.checkin_manhour) for day in days_past])
         else:
             self.checkin_manhour = 0
-        delta_manhour_remain = self.job.required_manhour - self.checkin_manhour
+        delta_manhour_remain = dec_float(self.job.required_manhour) - self.checkin_manhour
         self.manhour_remain = delta_manhour_remain if delta_manhour_remain > 0 else 0
         self.overhours = -delta_manhour_remain if delta_manhour_remain < 0 else 0
+        return self.__sort_day(workdays_remain), self.__sort_day(dayoff_remain), self.manhour_remain
 
-        if self.manhour_remain > 0:
-            avg_manhour_remain = round(self.manhour_remain / len(workdays_remain), 2)
-            if avg_manhour_remain >= self.job.daily_work_hours:
-                if avg_manhour_remain <= self.job.daily_work_hours + self.job.max_daily_overhours:
-                    schedule_hours = avg_manhour_remain
-                else:
-                    schedule_hours = self.job.daily_work_hours + self.job.max_daily_overhours
+    def __ceil_workhour_by_precision(self, workhour: Decimal, precision: Decimal):
+        """
+        make schedule time "ceil" to precision, only if it's not beyond the max overtime
+
+        :param workhour:
+        :param precision:
+        :return: Decimal type
+        """
+        if precision > 0:
+            if workhour % precision:
+                pre_schedule_hours = (workhour // precision + 1) * precision
             else:
-                schedule_hours = self.job.daily_work_hours
+                pre_schedule_hours = workhour
         else:
-            schedule_hours = self.job.daily_work_hours
+            pre_schedule_hours = workhour
 
+        max_daily_work_hours = dec_float(self.job.daily_work_hours) + dec_float(self.job.max_daily_overhours)
+        pre_schedule_hours = max_daily_work_hours \
+            if pre_schedule_hours > max_daily_work_hours else pre_schedule_hours
+
+        return pre_schedule_hours
+
+    def schedule(self, precision=1):
+        """
+        Update schedule time of workdays remaining.
+
+        :param precision: minimum time unit to calculate the schedule time, default to 1 hour
+        (eg. 0.25 means 15 mins). 0 means no limit.
+        :return:
+        """
+        workdays_remain, dayoff_remain, manhour_remain = self.__calculate_manhour_remain()
+        workdays_count = len(workdays_remain)
+
+        print('workdays remaining:', workdays_count)
         for day in workdays_remain:
-            day.schedule(schedule_hours)
-            day.overtime = 0 if schedule_hours <= self.job.daily_work_hours \
-                else round(schedule_hours - self.job.daily_work_hours, 2)
+
+            print('date:', day.date, "\t manhour_remain:", manhour_remain)
+            dec_daily_work_hours = dec_float(self.job.daily_work_hours)
+            if manhour_remain > dec_daily_work_hours:
+                avg_manhour_remain = Decimal(manhour_remain / workdays_count).quantize(Decimal('1.00'))
+                workdays_count -= 1
+                schedule_hours = self.__ceil_workhour_by_precision(avg_manhour_remain, dec_float(precision))
+                print('daily_avg_manhour_remain:', avg_manhour_remain)
+            else:
+                schedule_hours = dec_daily_work_hours
+
+            day.schedule(float(schedule_hours))
+            if schedule_hours > dec_daily_work_hours:
+                day.overtime = float(schedule_hours - dec_daily_work_hours)
+            else:
+                day.overtime = 0
+
+            manhour_remain -= schedule_hours
+
+            print("schedule_hours:", schedule_hours, "\t manhour_remain:", manhour_remain, '\n')
+
         for day in dayoff_remain:
             day.schedule(0)
             day.overtime = 0
@@ -242,10 +287,9 @@ class MHCalendarDrawer:
         self.blank_line = str(' ' * ((width + 1) * 7 + 1))
 
     def __separate_line(self, week: str, end=''):
-        week = ''.join(list(week).copy())
-        distance_to_end = self.width * 7 + 8 - len(week)
-        week += ' ' * distance_to_end
         week = list(week)
+        distance_to_end = self.width * 7 + 8 - len(week)
+        week += list(' ' * distance_to_end)
         week[::self.width + 1] = list('|' * 8)
         return ''.join(week) + end
 
@@ -282,11 +326,11 @@ class MHCalendarDrawer:
                       for i in range(len(week))]), '\n'))
         pipes.append(
             self.__separate_line(
-                self.__pipe(start_index, self.width, *['Schedule: ' + str(week[i].scheduled_work_hours)
+                self.__pipe(start_index, self.width, *['Sched: ' + str(week[i].scheduled_work_hours)
                                                        for i in range(len(week))]), '\n'))
         pipes.append(
             self.__separate_line(
-                self.__pipe(start_index, self.width, *['Overtime: ' + str(week[i].overtime)
+                self.__pipe(start_index, self.width, *['OT: ' + str(week[i].overtime)
                                                        for i in range(len(week))]), '\n'))
         pipes.append(
             self.__separate_line(
@@ -316,6 +360,7 @@ class MHCalendarDrawer:
             print(*self.__packup_week_schedule(schedule.month.weeks[i]), sep='', end='')
             print(self.__separate_line(self.hr_line))
             # TODO: 打印Job信息，本月工作时间概览，预期工资，节日列表，今日日期
+        print('(Sched = Schedule, OT = Overtime)')
 
 
 def timezone_date(tz=+9, area='Tokyo'):
@@ -352,3 +397,7 @@ def any(func, iterable):
         if func(x):
             return True
     return False
+
+
+def dec_float(number: float):
+    return Decimal(str(number))

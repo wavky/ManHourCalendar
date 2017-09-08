@@ -16,11 +16,13 @@ from src.job import Job
 date = date.today()
 month = mh.Month(date.year, date.month)
 month.initialize_days()
+days = month.days
 
 job = Job(required_manhour=170, daily_work_hours=7.5, hourly_pay=2000, max_daily_overhours=2)
 schedule = mh.Schedule(job, month)
 schedule.schedule()
 
-mh.MHCalendarDrawer(width=14).draw(schedule)
+mhc = mh.MHCalendarDrawer(width=14)
+mhc.draw(schedule)
 
 # TODO: 控制面板
