@@ -10,7 +10,7 @@ Process input and output
 import calendar
 from datetime import date
 
-from src.time_elements import Schedule
+from mhcalendar.time_elements import Schedule
 
 
 class MHCalendarDrawer:

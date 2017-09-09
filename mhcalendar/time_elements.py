@@ -14,7 +14,7 @@ from decimal import Decimal
 from functools import reduce
 from urllib import request
 
-from src.job import Job
+from mhcalendar.job import Job
 
 Holiday = namedtuple('Holiday',
                      ('year', 'month', 'day', 'year_name', 'year_count', 'weekday', 'weekday_number', 'name'))

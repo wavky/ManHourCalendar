@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/STDManHourCalculator.iml" filepath="$PROJECT_DIR$/.idea/STDManHourCalculator.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ManHourCalendar.iml" filepath="$PROJECT_DIR$/.idea/ManHourCalendar.iml" />
     </modules>
   </component>
 </project>

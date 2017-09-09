@@ -10,9 +10,9 @@ Example to run the program.
 
 from datetime import date
 
-import src.io as io
-import src.time_elements as mh
-from src.job import Job
+import mhcalendar.io as io
+import mhcalendar.time_elements as mh
+from mhcalendar.job import Job
 
 date = date.today()
 month = mh.Month(date.year, date.month)
