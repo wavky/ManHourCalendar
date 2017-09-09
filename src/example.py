@@ -2,7 +2,7 @@
 # @Time    : 17-9-2 01:39
 # @Author  : Wavky Huang
 # @Contact : master@wavky.com
-# @File    : main.py
+# @File    : example.py
 
 """
 Example to run the program.
@@ -11,7 +11,7 @@ Example to run the program.
 from datetime import date
 
 import src.io as io
-import src.manhour_calendar as mh
+import src.time_elements as mh
 from src.job import Job
 
 date = date.today()
