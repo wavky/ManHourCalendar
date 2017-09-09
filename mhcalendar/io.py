@@ -8,9 +8,105 @@
 Process input and output
 """
 import calendar
+import json
+import os
+import pickle
 from datetime import date
+from urllib import request
 
-from mhcalendar.time_elements import Schedule
+from mhcalendar.time_elements import Schedule, Holiday
+
+CONFIG_DIR = os.path.expanduser('~/.mhcalendar/')
+
+
+def exist(path):
+    return os.path.exists(path)
+
+
+def prepare():
+    """
+    Create config folder if not exist, and cache holidays if not exist or out of date.
+    """
+    if not exist(CONFIG_DIR):
+        os.makedirs(CONFIG_DIR)
+
+    # TODO: Maybe we can prepare holiday data for specific year
+    if not __check_holiday_cache():
+        holidays = update_holiday_schedule() or []
+        Cache.cache_holidays(holidays)
+
+
+def __check_holiday_cache():
+    holiday_cache = Cache.restore_holidays()
+    if holiday_cache and len(holiday_cache) > 0:
+        thisyear = date.today().year
+        if holiday_cache[0].year == thisyear:
+            return True
+    return False
+
+
+class Cache:
+    HOLIDAY_CACHE_NAME = 'holiday.cache'
+    SCHEDULE_CACHE_NAME = 'schedule.cache'
+
+    @classmethod
+    def cache_holidays(cls, holidays):
+        prepare()
+        path = CONFIG_DIR + Cache.HOLIDAY_CACHE_NAME
+        try:
+            with open(path, 'w') as file:
+                json.dump(holidays, file)
+        except:
+            print("Failure to open cache file:", path)
+
+    @classmethod
+    def cache_schedule(cls, schedule):
+        prepare()
+        path = CONFIG_DIR + Cache.SCHEDULE_CACHE_NAME
+        try:
+            with open(path, 'w') as file:
+                pickle.dump(schedule, file)
+        except:
+            print("Failure to open cache file:", path)
+
+    @classmethod
+    def restore_holidays(cls):
+        """
+        :return: Holiday list or None if no cache is found
+        """
+        path = CONFIG_DIR + Cache.HOLIDAY_CACHE_NAME
+        if exist(path):
+            try:
+                with open(path, 'r') as file:
+                    jslist = json.load(file)
+                    if jslist and isinstance(jslist, list):
+                        holidays = []
+                        for item in jslist:
+                            holiday = Holiday(*item)
+                            holidays.append(holiday)
+                        return holidays
+                    else:
+                        return None
+            except:
+                print("Failure to open cache file:", path)
+        else:
+            return None
+
+    @classmethod
+    def restore_schedule(cls):
+        """
+        :return: Schedule object or None if no cache is found
+        """
+        path = CONFIG_DIR + Cache.SCHEDULE_CACHE_NAME
+        if exist(path):
+            try:
+                with open(path, 'r') as file:
+                    schedule = pickle.load(file)
+                    return schedule if isinstance(schedule, Schedule) else None
+            except:
+                print("Failure to open cache file:", path)
+        else:
+            return None
 
 
 class MHCalendarDrawer:
@@ -144,3 +240,28 @@ class MHCalendarDrawer:
         self.__print_manhour_expect(schedule)
         self.__print_manhour_fornow(schedule)
         self.__print_manhour_absence(schedule)
+
+
+def update_holiday_schedule():
+    """
+    request new schedule list of holidays this year.
+
+    :return: new list of Holiday or None for update failure.
+    """
+
+    url = "http://calendar-service.net/cal?start_year={year}&start_mon=1&end_year={year}&end_mon=12\
+&year_style=normal&month_style=numeric&wday_style=en&format=csv&holiday_only=1".format(year=date.today().year)
+    print('Accessing network...')
+    print('url: ' + url)
+
+    try:
+        with request.urlopen(url) as f:
+            content = [line.decode('EUC-JP').replace('\n', '') for line in f.readlines()]
+            del content[0]
+            content = [line.split(',') for line in content]
+            holidays = [Holiday(*line) for line in content]
+            print('Update success.')
+            return holidays
+    except:
+        print("Update failure.")
+        return None

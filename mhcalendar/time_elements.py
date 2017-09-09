@@ -12,8 +12,8 @@ from collections import namedtuple
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from functools import reduce
-from urllib import request
 
+from mhcalendar.io import Cache
 from mhcalendar.job import Job
 
 Holiday = namedtuple('Holiday',
@@ -25,14 +25,8 @@ class Month:
         self.index = {'year': year, 'month': month}
         self.dates = list(
             filter(lambda date_: date_.month == month, calendar.Calendar().itermonthdates(year, month)))
-        self.days = []
-        self.holidays = []
-        self.weeks = []
 
-    def initialize_days(self):
-        # TODO: Cache update for a year, move update to outside the initialization
-        # holidays_one_year = update_holiday_schedule() or []
-        holidays_one_year = []
+        holidays_one_year = Cache.restore_holidays() or []
         self.holidays = list(filter(lambda ho: ho.month == str(self.index['month']), holidays_one_year))
         self.days = self.__dates2days()
         self.weeks = self.__days2weeks()
@@ -295,31 +289,6 @@ class Schedule:
 
 def timezone_date(tz=+9, area='Tokyo'):
     return datetime.now(tz=timezone(timedelta(hours=tz), area)).date()
-
-
-def update_holiday_schedule():
-    """
-    request new schedule list of holidays this year.
-
-    :return: new list of Holiday or None for update failure.
-    """
-
-    url = "http://calendar-service.net/cal?start_year={year}&start_mon=1&end_year={year}&end_mon=12\
-&year_style=normal&month_style=numeric&wday_style=en&format=csv&holiday_only=1".format(year=date.today().year)
-    print('Accessing network...')
-    print('url: ' + url)
-
-    try:
-        with request.urlopen(url) as f:
-            content = [line.decode('EUC-JP').replace('\n', '') for line in f.readlines()]
-            del content[0]
-            content = [line.split(',') for line in content]
-            holidays = [Holiday(*line) for line in content]
-            print('Update success.')
-            return holidays
-    except:
-        print("Update failure.")
-        return None
 
 
 def any(func, iterable):
