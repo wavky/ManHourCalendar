@@ -13,8 +13,8 @@ from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from functools import reduce
 
-from mhcalendar.io import Cache
 from mhcalendar.job import Job
+from mhcalendar.log import log
 
 Holiday = namedtuple('Holiday',
                      ('year', 'month', 'day', 'year_name', 'year_count', 'weekday', 'weekday_number', 'name'))
@@ -26,6 +26,7 @@ class Month:
         self.dates = list(
             filter(lambda date_: date_.month == month, calendar.Calendar().itermonthdates(year, month)))
 
+        from mhcalendar.io import Cache
         holidays_one_year = Cache.restore_holidays() or []
         self.holidays = list(filter(lambda ho: ho.month == str(self.index['month']), holidays_one_year))
         self.days = self.__dates2days()
@@ -146,7 +147,7 @@ class Day:
 
 
 class Schedule:
-    def __init__(self, job: Job, month: Month):
+    def __init__(self, job: [Job, None], month: Month):
         self.job = job
         self.month = month
         # how many hours you have worked this month (Decimal type or 0)
@@ -257,16 +258,16 @@ class Schedule:
         workdays_remain, dayoff_remain, manhour_remain = self.__calculate_manhour_remain()
         workdays_count = len(workdays_remain)
 
-        print('workdays remaining:', workdays_count)
+        log('workdays remaining:', workdays_count)
         for day in workdays_remain:
 
-            print('date:', day.date, "\t manhour_remain:", manhour_remain)
+            log('date:', day.date, "\t manhour_remain:", manhour_remain)
             dec_daily_work_hours = dec_float(self.job.daily_work_hours)
             if manhour_remain > dec_daily_work_hours:
                 avg_manhour_remain = Decimal(manhour_remain / workdays_count).quantize(Decimal('1.00'))
                 workdays_count -= 1
                 schedule_hours = self.__ceil_workhour_by_precision(avg_manhour_remain, dec_float(precision))
-                print('daily_avg_manhour_remain:', avg_manhour_remain)
+                log('daily_avg_manhour_remain:', avg_manhour_remain)
             else:
                 schedule_hours = dec_daily_work_hours
 
@@ -278,7 +279,7 @@ class Schedule:
 
             manhour_remain -= schedule_hours
 
-            print("schedule_hours:", schedule_hours, "\t manhour_remain:", manhour_remain, '\n')
+            log("schedule_hours:", schedule_hours, "\t manhour_remain:", manhour_remain, '\n')
 
         for day in dayoff_remain:
             day.schedule(0)

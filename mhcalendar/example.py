@@ -8,12 +8,10 @@
 Example to run the program.
 """
 
-
 import mhcalendar.io as io
 import mhcalendar.time_elements as mh
 from mhcalendar.job import Job
 
-io.prepare()
 month = mh.Month(2017, 9)
 
 job = Job(required_manhour=170, daily_work_hours=7.5, hourly_pay=2000, max_daily_overhours=2)

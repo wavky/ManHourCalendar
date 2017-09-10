@@ -31,3 +31,11 @@ class Job:
             self.max_daily_overhours = 24 - daily_work_hours
             print("daily_work_hours + max_daily_overhours > 24, max_daily_overhours has been set to {0}.".format(
                 self.max_daily_overhours))
+
+    def __str__(self):
+        return "Current Job: \t Require manhour = {0} \t Daily work hours = {1} \n\
+\t\t Hourly pay = {2} \t\t Max daily overhours = {3}".format(self.required_manhour, self.daily_work_hours,
+                                                             self.hourly_pay, self.max_daily_overhours)
+
+    def __repr__(self):
+        return self.__str__()

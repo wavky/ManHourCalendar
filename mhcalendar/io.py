@@ -14,7 +14,7 @@ import pickle
 from datetime import date
 from urllib import request
 
-from mhcalendar.time_elements import Schedule, Holiday
+from mhcalendar.time_elements import Schedule, Holiday, Month, dec_float
 
 CONFIG_DIR = os.path.expanduser('~/.mhcalendar/')
 
@@ -25,24 +25,43 @@ def exist(path):
 
 def prepare():
     """
-    Create config folder if not exist, and cache holidays if not exist or out of date.
+    Create config folder if not exist, cache holidays if not exist or out of date, and initialize schedule cache.
+    """
+
+    _check_config_path()
+
+    # TODO: Maybe we can prepare holiday data for specific year
+    if not _check_holiday_cache():
+        holidays = update_holiday_schedule() or []
+        Cache.cache_holidays(holidays)
+
+    _init_schedule_cache()
+
+
+def _check_config_path():
+    """
+    Create config folder if not exist
     """
     if not exist(CONFIG_DIR):
         os.makedirs(CONFIG_DIR)
 
-    # TODO: Maybe we can prepare holiday data for specific year
-    if not __check_holiday_cache():
-        holidays = update_holiday_schedule() or []
-        Cache.cache_holidays(holidays)
 
-
-def __check_holiday_cache():
+def _check_holiday_cache():
     holiday_cache = Cache.restore_holidays()
     if holiday_cache and len(holiday_cache) > 0:
         thisyear = date.today().year
-        if holiday_cache[0].year == thisyear:
+        if holiday_cache[0].year == str(thisyear):
             return True
     return False
+
+
+def _init_schedule_cache():
+    schedule_cache = Cache.restore_schedule()
+    if not schedule_cache:
+        today = date.today()
+        month = Month(today.year, today.month)
+        schedule = Schedule(None, month)
+        Cache.cache_schedule(schedule)
 
 
 class Cache:
@@ -51,7 +70,7 @@ class Cache:
 
     @classmethod
     def cache_holidays(cls, holidays):
-        prepare()
+        _check_config_path()
         path = CONFIG_DIR + Cache.HOLIDAY_CACHE_NAME
         try:
             with open(path, 'w') as file:
@@ -61,10 +80,10 @@ class Cache:
 
     @classmethod
     def cache_schedule(cls, schedule):
-        prepare()
+        _check_config_path()
         path = CONFIG_DIR + Cache.SCHEDULE_CACHE_NAME
         try:
-            with open(path, 'w') as file:
+            with open(path, 'wb') as file:
                 pickle.dump(schedule, file)
         except:
             print("Failure to open cache file:", path)
@@ -100,7 +119,7 @@ class Cache:
         path = CONFIG_DIR + Cache.SCHEDULE_CACHE_NAME
         if exist(path):
             try:
-                with open(path, 'r') as file:
+                with open(path, 'rb') as file:
                     schedule = pickle.load(file)
                     return schedule if isinstance(schedule, Schedule) else None
             except:
@@ -214,7 +233,7 @@ class MHCalendarDrawer:
         print('For now:  ', 'Checkin manhour = {}'.format(schedule.checkin_manhour),
               '\t Remaining manhour = {}'.format(schedule.manhour_remain),
               '\t Overtime = {}'.format(schedule.overhours),
-              '\t Salary = {}'.format(schedule.checkin_manhour * schedule.job.hourly_pay))
+              '\t Salary = {}'.format(schedule.checkin_manhour * dec_float(schedule.job.hourly_pay)))
 
     def __print_manhour_absence(self, schedule):
         if schedule.manhour_absence > 0:
@@ -251,7 +270,7 @@ def update_holiday_schedule():
 
     url = "http://calendar-service.net/cal?start_year={year}&start_mon=1&end_year={year}&end_mon=12\
 &year_style=normal&month_style=numeric&wday_style=en&format=csv&holiday_only=1".format(year=date.today().year)
-    print('Accessing network...')
+    print('Accessing network to request holiday data...')
     print('url: ' + url)
 
     try:
@@ -260,8 +279,8 @@ def update_holiday_schedule():
             del content[0]
             content = [line.split(',') for line in content]
             holidays = [Holiday(*line) for line in content]
-            print('Update success.')
+            print('Success.')
             return holidays
     except:
-        print("Update failure.")
+        print("Holiday schedule request failure.")
         return None
