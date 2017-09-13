@@ -16,7 +16,7 @@ from urllib import request
 
 from mhcalendar.time_elements import Schedule, Holiday, Month, dec_float
 
-CONFIG_DIR = os.path.expanduser('~/.mhcalendar/')
+CONFIG_DIR = os.path.join(os.path.expanduser('~'), '.mhcalendar')
 
 
 def exist(path):
@@ -71,7 +71,7 @@ class Cache:
     @classmethod
     def cache_holidays(cls, holidays):
         _check_config_path()
-        path = CONFIG_DIR + Cache.HOLIDAY_CACHE_NAME
+        path = os.path.join(CONFIG_DIR, Cache.HOLIDAY_CACHE_NAME)
         try:
             with open(path, 'w') as file:
                 json.dump(holidays, file)
@@ -81,7 +81,7 @@ class Cache:
     @classmethod
     def cache_schedule(cls, schedule):
         _check_config_path()
-        path = CONFIG_DIR + Cache.SCHEDULE_CACHE_NAME
+        path = os.path.join(CONFIG_DIR, Cache.SCHEDULE_CACHE_NAME)
         try:
             with open(path, 'wb') as file:
                 pickle.dump(schedule, file)
@@ -93,7 +93,7 @@ class Cache:
         """
         :return: Holiday list or None if no cache is found
         """
-        path = CONFIG_DIR + Cache.HOLIDAY_CACHE_NAME
+        path = os.path.join(CONFIG_DIR, Cache.HOLIDAY_CACHE_NAME)
         if exist(path):
             try:
                 with open(path, 'r') as file:
@@ -116,7 +116,7 @@ class Cache:
         """
         :return: Schedule object or None if no cache is found
         """
-        path = CONFIG_DIR + Cache.SCHEDULE_CACHE_NAME
+        path = os.path.join(CONFIG_DIR, Cache.SCHEDULE_CACHE_NAME)
         if exist(path):
             try:
                 with open(path, 'rb') as file:
