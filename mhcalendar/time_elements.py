@@ -266,7 +266,10 @@ class Schedule:
             if manhour_remain > dec_daily_work_hours:
                 avg_manhour_remain = Decimal(manhour_remain / workdays_count).quantize(Decimal('1.00'))
                 workdays_count -= 1
-                schedule_hours = self.__ceil_workhour_by_precision(avg_manhour_remain, dec_float(precision))
+                if avg_manhour_remain > dec_daily_work_hours:
+                    schedule_hours = self.__ceil_workhour_by_precision(avg_manhour_remain, dec_float(precision))
+                else:
+                    schedule_hours = dec_daily_work_hours
                 log('daily_avg_manhour_remain:', avg_manhour_remain)
             else:
                 schedule_hours = dec_daily_work_hours

@@ -226,7 +226,7 @@ class MHCalendarDrawer:
     def __print_manhour_expect(self, schedule):
         workdays = len(schedule.month.days) - len(schedule.dayoff_list)
         salary = schedule.job.required_manhour * schedule.job.hourly_pay
-        print('Expecting:', 'Manhour/Workdays = {0}/{1}'.format(schedule.job.required_manhour, workdays),
+        print('Expecting:', 'Manhour/Workdays = {0}/{1}d'.format(schedule.job.required_manhour, workdays),
               '\t Salary = {}'.format(salary))
 
     def __print_manhour_fornow(self, schedule):

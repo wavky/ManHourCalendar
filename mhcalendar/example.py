@@ -14,9 +14,9 @@ from mhcalendar.job import Job
 
 month = mh.Month(2017, 9)
 
-job = Job(required_manhour=170, daily_work_hours=7.5, hourly_pay=2000, max_daily_overhours=2)
+job = Job(required_manhour=120, daily_work_hours=7.5, hourly_pay=2000, max_daily_overhours=2)
 schedule = mh.Schedule(job, month)
-schedule.schedule()
+schedule.schedule(0.5)
 
 mhc = io.MHCalendarDrawer(width=14)
 mhc.draw(schedule)
@@ -27,6 +27,6 @@ month.next_day.checkin()
 month.next_day.checkin()
 
 schedule.adjust(day_off=[6, 12, -9, -17])
-schedule.schedule()
+schedule.schedule(0.5)
 
 mhc.draw(schedule)
