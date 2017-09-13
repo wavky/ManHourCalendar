@@ -1,7 +1,7 @@
 Man Hour Calendar
 ===
 
-A simple monthly calendar for checking and schedule your working man-hours. （Mainly for Japan)
+A simple monthly calendar for checking and scheduling your working man-hours. （Mainly for Japan)
 
 [中文版文档](https://github.com/wavky/ManHourCalendar/blob/master/README.zh.md)
 

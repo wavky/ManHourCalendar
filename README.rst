@@ -1,7 +1,7 @@
 Man Hour Calendar
 =================
 
-A simple monthly calendar for checking and schedule your working
+A simple monthly calendar for checking and scheduling your working
 man-hours. （Mainly for Japan)
 
 `中文版文档 <https://github.com/wavky/ManHourCalendar/blob/master/README.zh.md>`__
@@ -45,6 +45,7 @@ For more information you can check it out by command:
     $ mhcalendar -h
 
 Also you can run it by your python script, refer to this file:
+
 `Example.py <https://github.com/wavky/ManHourCalendar/blob/master/mhcalendar/example.py>`__
 
 Install
@@ -70,6 +71,7 @@ this folder as files:
     C:\Users\username\.mhcalendar\
 
 And holidays schedule is fetched from the site below:
+
 http://calendar-service.net/
 
 ご提供ありがとうございます！

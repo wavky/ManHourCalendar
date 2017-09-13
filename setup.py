@@ -22,7 +22,8 @@ setup(
     license='MIT',
     keywords=['man-hour', 'manhour', 'man hour', 'calendar', 'schedule'],
     python_requires='>=3',
-    package=find_packages(),
+    packages=find_packages(),
+    py_modules=['meta'],
     install_requires=['docopt>=0.6.2', 'pypandoc>=1.4'],
     classifiers=[
         'Development Status :: 4 - Beta',
