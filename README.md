@@ -3,7 +3,7 @@ Man Hour Calendar
 
 A simple monthly calendar for checking and schedule your working man-hours. （Mainly for Japan)
 
-[中文版文档]()
+[中文版文档](https://github.com/wavky/ManHourCalendar/blob/master/README.zh.md)
 
 This is a CLI tool, just as my first python project, created to deal with my monthly man-hour calculation.
 
@@ -40,7 +40,7 @@ $ mhcalendar -h
 ```
 
 Also you can run it by your python script, refer to this file:
-[Example.py]()
+[Example.py](https://github.com/wavky/ManHourCalendar/blob/master/mhcalendar/example.py)
 
 ## Install
 This program is written in python3, you need to install the python3 and pip3 before this installation.

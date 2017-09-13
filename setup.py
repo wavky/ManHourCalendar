@@ -18,7 +18,7 @@ setup(
     author_email=AUTHOR_EMAIL,
     description='Calendar to manage your man-hour.',
     long_description=open('README.rst').read(),
-    url='',
+    url='https://github.com/wavky/ManHourCalendar',
     license='MIT',
     keywords=['man-hour', 'manhour', 'man hour', 'calendar', 'schedule'],
     python_requires='>=3',

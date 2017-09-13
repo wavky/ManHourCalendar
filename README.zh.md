@@ -51,7 +51,7 @@ $ mhcalendar -h
 ```
 
 下载源码，并以脚本方式运行时，可参考该文件：
-[Example.py]()
+[Example.py](https://github.com/wavky/ManHourCalendar/blob/master/mhcalendar/example.py)
 
 ## Install
 该程序使用python3编写，您需要先确定当前使用pip程序对应于phthon3，并使用pip程序进行安装：
