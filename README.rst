@@ -18,25 +18,25 @@ The simply way to use it like this flow:
 
     # Initialize your Job file first.
     # It will also update the Japanese holidays schedule at the first time.
-    $ python3 mhcalendar.py -J ...
+    $ mhcalendar -J ...
 
     # Check out the man-hour schedule of current month.
-    $ python3 mhcalendar.py
+    $ mhcalendar
 
     # Check in your man-hour of first day.
     # Ensure that you will check in everyday.
-    $ python3 mhcalendar.py -c 8
+    $ mhcalendar -c 8
 
     # Check out your schedule again to confirm your next day's work hours.
-    $ python3 mhcalendar.py
+    $ mhcalendar
 
 
     # Schedule your day off or on duty days anytime before it comes.
     # For example, make date of 9, 10 and 11 as dayoff, and go to work at 13th.
-    $ python3 mhcalendar.py --dayoff -- 9 10 11 -13
+    $ mhcalendar --dayoff -- 9 10 11 -13
 
     # Remember to Update your schedule by calling this
-    $ python3 mhcalendar.py
+    $ mhcalendar
 
 For more information you can check it out by command:
 

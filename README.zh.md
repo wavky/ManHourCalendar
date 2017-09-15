@@ -17,31 +17,31 @@ http://calendar-service.net/
 # hourly_pay			时薪，该数据仅用于统计
 # max_daily_overhours	可接受的每天加班时间上限（不包括正常工作时间）
 # 首次运行时会从上述网站中获取全年节假日数据
-$ python3 mhcalendar.py -J ...
+$ mhcalendar -J ...
 
 # 检查您本月的工时编排表
-$ python3 mhcalendar.py
+$ mhcalendar
 
 # 录入您当天的实际工时（请确保每天进行录入，包括节假日）
-$ python3 mhcalendar.py -c 8
+$ mhcalendar -c 8
 # 节假日没有工时安排时，或实际工时与计划工时一致时，可简单录入
-$ python3 mhcalendar.py -c
+$ mhcalendar -c
 
 # 再次检查您的月历表，查看下一天的工时数
 # 该过程会依据您刚才录入的实际工时数，再次计算分配日均工时量
-$ python3 mhcalendar.py
+$ mhcalendar
 
 ----------------------------------------------------
 
 # 当需要更改本月休息、上班日期时，可通过该命令进行指定，但仅限于未录入工时的日子
 # 例如，指定9、10、11日为休假，13日上班（假定13日为节假日或周末）
-$ python3 mhcalendar.py --dayoff -- 9 10 11 -13
+$ mhcalendar --dayoff -- 9 10 11 -13
 
 # 指定修改完毕后，刷新显示月历以更新工时编排表
-$ python3 mhcalendar.py
+$ mhcalendar
 
 # 程序首次运行时会自动初始化为当前月份，需要更新月份时，使用该命令执行
-$ python3 mhcalendar.py -M 2017 9
+$ mhcalendar -M 2017 9
 
 ```
 
