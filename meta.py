@@ -8,6 +8,6 @@
 
 """
 PROJECT_NAME = 'ManHourCalendar'
-VERSION = '0.9.1b2'
+VERSION = '0.9.1b3'
 AUTHOR = 'Wavky Huang'
 AUTHOR_EMAIL = 'master@wavky.com'

@@ -24,7 +24,7 @@ setup(
     python_requires='>=3',
     packages=find_packages(),
     py_modules=['meta'],
-    install_requires=['docopt>=0.6.2', 'pypandoc>=1.4'],
+    install_requires=['docopt>=0.6.2'],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
